@@ -23,6 +23,7 @@
  */
 "use strict";
 
+var fs = require("fs");
 var http = require("http");
 var http_status = require("http-status");
 var State = require("./state.js");
@@ -38,12 +39,13 @@ var URI = require("URIjs");
  * 
  * @param {function() → State} get Read the current traffic light state
  * @param {function(State)} set Write a new traffic light state
- * @param {String} gui HTML GUI to return on /
+ * @param {String|undefined} gui HTML GUI to return on /
  * 
  * @returns {http.Server} Unbound traffic light HTTP server
  */
 var Server = function(get, set, gui) {
 	var server = http.createServer();
+	gui = gui ? gui : fs.readFileSync(require.resolve("./gui.html"));
 	
 	
 	
