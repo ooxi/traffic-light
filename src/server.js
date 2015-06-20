@@ -23,6 +23,7 @@
  */
 "use strict";
 
+var async = require("async");
 var fs = require("fs");
 var http = require("http");
 var http_status = require("http-status");
@@ -52,15 +53,22 @@ var Server = function(get, set, gui) {
 	/**
 	 * Invokes `get' and checks the result.
 	 * 
-	 * @returns {State} Current traffic light state
+	 * @param {function(err, State)} Will be invoked with current traffic
+	 *     light state as soon as operation has completed
 	 */
-	var safe_get = function() {
-		var state = get();
-		
-		if (!(state instanceof State)) {
-			throw new Error("Invalid traffic light state `"+ state +"' returned by `"+ get +"'");
-		}
-		return state;
+	var safe_get = function(cb) {
+		get(function(err, state) {
+			if (err) {
+				cb(err);
+				return;
+			}
+			if (!(state instanceof State)) {
+				cb(new Error("Invalid traffic light state `"+ state +"' returned by `"+ get +"'"));
+				return;
+			}
+			
+			cb(null, state);
+		});
 	};
 	
 	
@@ -80,6 +88,8 @@ var Server = function(get, set, gui) {
 	
 	
 	
+	
+	
 	/**
 	 * Parses an API request, updates the traffic light state and returns
 	 * the resulting traffic light state.
@@ -89,67 +99,113 @@ var Server = function(get, set, gui) {
 	 */
 	var handle_api = function(request, response) {
 		var query = new URI(request.url).query(true);
-		var state = safe_get();
 		
-		var send_error = function(msg) {
-			response.writeHead(http_status.BAD_REQUEST, {
-				"Content-Type": "text/plain; charset=UTF-8"
+		
+		/* Read current state from engine
+		 */
+		var read_state = function(callback) {
+			safe_get(function(err, new_state) {
+				if (err) return callback(err);
+				
+				callback(null, new_state);
 			});
-			response.end(msg, "UTF-8");
 		};
 		
 		
-		/* Parse request properties
+		/* Parse request properties and updates a status object
+		 * accordingly
 		 */
-		if (query.hasOwnProperty("red")) {
-			if ("true" === query.red) {
-				state = state.red(true);
-			} else if ("false" === query.red) {
-				state = state.red(false);
-			} else {
-				send_error("Invalid value `"+ query.red +"' for property `red'");
+		var read_query = function(state, callback) {
+			if (query.hasOwnProperty("red")) {
+				if ("true" === query.red) {
+					state = state.red(true);
+				} else if ("false" === query.red) {
+					state = state.red(false);
+				} else {
+					cb(new Error("Invalid value `"+ query.red +"' for property `red'"));
+					return;
+				}
 			}
-		}
-		
-		if (query.hasOwnProperty("yellow")) {
-			if ("true" === query.yellow) {
-				state = state.yellow(true);
-			} else if ("false" === query.yellow) {
-				state = state.yellow(false);
-			} else {
-				send_error("Invalid value `"+ query.yellow +"' for property `yellow'");
+
+			if (query.hasOwnProperty("yellow")) {
+				if ("true" === query.yellow) {
+					state = state.yellow(true);
+				} else if ("false" === query.yellow) {
+					state = state.yellow(false);
+				} else {
+					cb(new Error("Invalid value `"+ query.yellow +"' for property `yellow'"));
+					return;
+				}
 			}
-		}
-		
-		if (query.hasOwnProperty("green")) {
-			if ("true" === query.green) {
-				state = state.green(true);
-			} else if ("false" === query.green) {
-				state = state.green(false);
-			} else {
-				send_error("Invalid value `"+ query.green +"' for property `green'");
+
+			if (query.hasOwnProperty("green")) {
+				if ("true" === query.green) {
+					state = state.green(true);
+				} else if ("false" === query.green) {
+					state = state.green(false);
+				} else {
+					cb(new Error("Invalid value `"+ query.green +"' for property `green'"));
+					return;
+				}
 			}
-		}
+			
+			callback(null, state);
+		};
 		
 		
-		/* Update traffic light status
+		/* Update engine to reflect current state
 		 */
-		set(state);
+		var write_state = function(state, callback) {
+			set(state, function(err) {
+				if (err) return callback(err);
+				
+				callback(null);
+			});
+		};
 		
 		
-		/* Send resulting traffic light state
+		
+		/* 1. Read current state from engine
+		 * 2. Update state object to reflect desired state (according to
+		 *    client request
+		 * 3. Write updated state to engine
+		 * 4. Read updated state from engine
+		 * 5. Return current state to client (or an error message)
 		 */
-		state = safe_get();
-		
-		response.writeHead(http_status.OK, {
-			"Content-Type": "application/json; charset=UTF-8"
+		async.waterfall([
+			read_state,
+			read_query,
+			write_state,
+			read_state
+			
+		/* Return updated state to client
+		 */
+		], function(err, state) {
+			
+			/* Operation successful, return updated state object
+			 */
+			if (!err) {
+				response.writeHead(http_status.OK, {
+					"Content-Type": "application/json; charset=UTF-8"
+				});
+				response.end(JSON.stringify({
+					red:	state.red(),
+					yellow:	state.yellow(),
+					green:	state.green()
+				}), "UTF-8");
+			
+			/* Operation did not success, return error message
+			 */
+			} else {
+				response.writeHead(http_status.BAD_REQUEST, {
+					"Content-Type": "text/plain; charset=UTF-8"
+				});
+				response.end("Caught unexpected error of type `"+ typeof(err) +"'\n\n"+ err, "UTF-8");
+			}
 		});
-		response.end(JSON.stringify({
-			red:	state.red(),
-			yellow:	state.yellow(),
-			green:	state.green()
-		}), "UTF-8");
 	};
+	
+	
 	
 	
 	
@@ -212,7 +268,7 @@ var Server = function(get, set, gui) {
 	server.on("close", function() {
 		set(new State(false, false, false));
 	});
-	
+
 	
 	
 	/* Discard `this' and return created http.Server instance

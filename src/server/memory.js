@@ -23,6 +23,7 @@
  */
 "use strict";
 
+var DefaultCallback = require("./default-callback.js");
 var State = require("../state.js");
 
 
@@ -48,20 +49,32 @@ var Memory = function() {
 	/**
 	 * Traffic light server get handler
 	 * 
-	 * @return {State} Current state
+	 * @param {function(err, TrafficLight.State)} cb Will be invoked with
+	 *     current traffic light state
 	 */
-	this.get = function() {
-		return self.state;
+	this.get = function(cb) {
+		cb = cb ? cb : DefaultCallback("[TrafficLight.Server.Memory] Getting state failed");
+		
+		process.nextTick(function() {
+			cb(null, self.state);
+		});
 	};
 	
 	
 	/**
 	 * Traffic light server set handler
 	 * 
-	 * @param {State} state Desired traffic light state
+	 * @param {TrafficLight.State} state Desired traffic light state
+	 * @param {function(err)} cb Will be invoked as soon as desired traffic
+	 *     light state is set
 	 */
-	this.set = function(state) {
-		self.state = state;
+	this.set = function(state, cb) {
+		cb = cb ? cb : DefaultCallback("[TrafficLight.Server.Memory] Setting state failed");
+		
+		process.nextTick(function() {
+			self.state = state;
+			cb(null);
+		});
 	};
 };
 

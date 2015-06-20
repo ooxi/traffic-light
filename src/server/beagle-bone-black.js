@@ -23,8 +23,10 @@
  */
 "use strict";
 
-var collection_includes = require("lodash/collection/includes");
+var async = require("async");
 var bonescript = require("bonescript");
+var collection_includes = require("lodash/collection/includes");
+var DefaultCallback = require("./default-callback.js");
 var State = require("../state.js");
 
 
@@ -89,10 +91,36 @@ var BeagleBoneBlack = function(settings) {
 	
 	
 	/**
-	 * @returns {TrafficLight.State} The current traffic light state
+	 * @param {function(err, TrafficLight.State)} Will be invoked with
+	 *     current traffic light state
 	 */
-	this.get = function() {
-		return new State(false, false, false);
+	this.get = function(cb) {
+		cb = cb ? cb : DefaultCallback("[TrafficLight.Server.BeagleBoneBlack] Getting state failed");
+		
+		process.nextTick(function() {
+			console.log("[TrafficLight.Server.BeagleBoneBlack] Getting state not supported, will return dummy values");
+			cb(null, new State(false, false, false));
+		});
+//		var read_pin = function(pin) {
+//			return function(cb) {
+//				bonescript.digitalRead(pin, function(x) {
+//					cb(x.err, x.value);
+//				});
+//			};
+//		};
+//		
+//		
+//		async.parallel({
+//			red:	read_pin(RED_PIN),
+//			yellow:	read_pin(YELLOW_PIN),
+//			green:	read_pin(GREEN_PIN)
+//		}, function(err, results) {
+//			if (err) {
+//				cb(err);
+//			} else {
+//				cb(null, new State(results.red, results.yellow, results.green));
+//			}
+//		});
 	};
 	
 	
@@ -100,12 +128,29 @@ var BeagleBoneBlack = function(settings) {
 	/**
 	 * Updates the current traffic light state.
 	 * 
-	 * @param {State} state Desired traffic light state
+	 * @param {TrafficLight.State} state Desired traffic light state
+	 * @param {function(err)} cb Will be invoked after traffic light state
+	 *     was changed
 	 */
-	this.set = function(state) {
-		bonescript.digitalWrite(RED_PIN, state.red() ? bonescript.HIGH : bonescript.LOW);
-		bonescript.digitalWrite(YELLOW_PIN, state.yellow() ? bonescript.HIGH : bonescript.LOW);
-		bonescript.digitalWrite(GREEN_PIN, state.green() ? bonescript.HIGH : bonescript.LOW);
+	this.set = function(state, cb) {
+		cb = cb ? cb : DefaultCallback("[TrafficLight.Server.BeagleBoneBlack] Setting state failed");
+		
+		var write_pin = function(pin, to) {
+			return function(cb) {
+				bonescript.digitalWrite(pin, to, function(x) {
+					cb(x.err);
+				});
+			};
+		};
+		
+		
+		async.parallel([
+			write_pin(RED_PIN, state.red() ? bonescript.HIGH : bonescript.LOW),
+			write_pin(YELLOW_PIN, state.yellow() ? bonescript.HIGH : bonescript.LOW),
+			write_pin(GREEN_PIN, state.green() ? bonescript.HIGH : bonescript.LOW)
+		], function(err) {
+			cb(err);
+		});
 	};
 };
 
