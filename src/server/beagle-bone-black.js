@@ -34,14 +34,57 @@ var State = require("../state.js");
 
 
 /**
+ * Checks if `subject' is an array of strings and every string in the array is a
+ * valid Beagle Bone Black pin name
+ * 
+ * @param {String} color Color of pin for error message
+ * @param {String[]) subject List of pin names
+ * 
+ * @throws {Error} iff subject is not a valid list of pin names
+ */
+var verify_pin_names = function(color, subject) {
+	if (!Array.isArray(subject)) {
+		throw new Error("Pin names should be given as array of pin names but `"+ typeof(subject) +"' is given");
+	}
+	var valid_pin_names = Object.keys(bonescript.bone.pins);
+	
+	for (var i = 0; i < subject.length; ++i) {
+		var pin_name = subject[i];
+		
+		if (!collection_includes(valid_pin_names, pin_name)) {
+			throw new Error("Cannot find "+ color +" pin #"+ i +" `"+ pin_name +"' in beagle bone black pins `"+ valid_pin_names +"'");
+		}
+	}
+};
+
+
+
+/**
+ * Invokes `bonescript.pinMode' on every pin in `pin_names'
+ * 
+ * @param {String[]) pin_names List of pins whoes state should be changed
+ * @param {INPUT|INPUT_PULLUP|OUTPUT} mode Desired pin mode
+ */
+var set_pin_modes = function(pin_names, mode) {
+	pin_names.forEach(function(pin_name) {
+		bonescript.pinMode(pin_name, mode);
+	});
+};
+
+
+
+
+
+/**
  * Traffic light connected to a beagle bone black. By default the on board LEDs
  * will be used as signal, but the pins can be overwritten by settings.
  * 
- * @param {String} settings ['red-pin'] Pin name for red light (default 'USR0')
- * @param {String} settings ['yellow-pin'] Pin name for yellow light (default
- *     'USR1')
- * @param {String} settings ['green-pin'] Pin name for green light (default
- *     'USR2')
+ * @param {String} settings ['red-pins'] Pin names for red light (default
+ *     ['USR0'])
+ * @param {String} settings ['yellow-pins'] Pin names for yellow light (default
+ *     ['USR1'])
+ * @param {String} settings ['green-pins'] Pin names for green light (default
+ *     ['USR2'])
  * 
  * @returns {BeagleBoneBlack} Instance with `get' and `set' handler compatible
  *     to `TrafficLight.Server' requirements
@@ -50,41 +93,33 @@ var BeagleBoneBlack = function(settings) {
 	
 	/* Copy settings to immutable structure
 	 */
-	var RED_PIN = "USR0";
-	var YELLOW_PIN = "USR1";
-	var GREEN_PIN = "USR2";
+	var RED_PINS = ["USR0"];
+	var YELLOW_PINS = ["USR1"];
+	var GREEN_PINS = ["USR2"];
 	
-	if ("red-pin" in settings) {
-		RED_PIN = ""+ settings["red-pin"];
+	if ("red-pins" in settings) {
+		RED_PINS = settings["red-pins"];
 	}
-	if ("yellow-pin" in settings) {
-		YELLOW_PIN = ""+ settings["yellow-pin"];
+	if ("yellow-pins" in settings) {
+		YELLOW_PINS = settings["yellow-pins"];
 	}
-	if ("green-pin" in settings) {
-		GREEN_PIN = ""+ settings["green-pin"];
+	if ("green-pins" in settings) {
+		GREEN_PINS = settings["green-pins"];
 	}
 	
 	
 	/* Verify pin names
 	 */
-	var pins = Object.keys(bonescript.bone.pins);
-	
-	if (!collection_includes(pins, RED_PIN)) {
-		throw new Error("Cannot find red pin `"+ RED_PIN +"' in beagle bone black pins `"+ pins +"'");
-	}
-	if (!collection_includes(pins, YELLOW_PIN)) {
-		throw new Error("Cannot find yellow pin `"+ YELLOW_PIN +"' in beagle bone black pins `"+ pins +"'");
-	}
-	if (!collection_includes(pins, GREEN_PIN)) {
-		throw new Error("Cannot find green pin `"+ GREEN_PIN +"' in beagle bone black pins `"+ pins +"'");
-	}
+	verify_pin_names("red", RED_PINS);
+	verify_pin_names("yellow", YELLOW_PINS);
+	verify_pin_names("green", GREEN_PINS);
 	
 	
 	/* Configure pins as output
 	 */
-	bonescript.pinMode(RED_PIN, bonescript.OUTPUT);
-	bonescript.pinMode(YELLOW_PIN, bonescript.OUTPUT);
-	bonescript.pinMode(GREEN_PIN, bonescript.OUTPUT);
+	set_pin_modes(RED_PINS, bonescript.OUTPUT);
+	set_pin_modes(YELLOW_PINS, bonescript.OUTPUT);
+	set_pin_modes(GREEN_PINS, bonescript.OUTPUT);
 	
 	
 	
@@ -111,9 +146,9 @@ var BeagleBoneBlack = function(settings) {
 //		
 //		
 //		async.parallel({
-//			red:	read_pin(RED_PIN),
-//			yellow:	read_pin(YELLOW_PIN),
-//			green:	read_pin(GREEN_PIN)
+//			red:	read_pin(RED_PINS),
+//			yellow:	read_pin(YELLOW_PINS),
+//			green:	read_pin(GREEN_PINS)
 //		}, function(err, results) {
 //			if (err) {
 //				cb(err);
@@ -135,19 +170,30 @@ var BeagleBoneBlack = function(settings) {
 	this.set = function(state, cb) {
 		cb = cb ? cb : DefaultCallback("[TrafficLight.Server.BeagleBoneBlack] Setting state failed");
 		
-		var write_pin = function(pin, to) {
+		var write_pin = function(pin, value) {
 			return function(cb) {
-				bonescript.digitalWrite(pin, to, function(x) {
+				bonescript.digitalWrite(pin, value, function(x) {
 					cb(x.err);
 				});
 			};
 		};
 		
+		var write_pins = function(pins, value) {
+			return function(cb) {
+				var tasks = [];
+				
+				pins.forEach(function(pin) {
+					tasks.push(write_pin(pin, value));
+				});
+				async.parallel(tasks, cb);
+			};
+		};
+		
 		
 		async.parallel([
-			write_pin(RED_PIN, state.red() ? bonescript.HIGH : bonescript.LOW),
-			write_pin(YELLOW_PIN, state.yellow() ? bonescript.HIGH : bonescript.LOW),
-			write_pin(GREEN_PIN, state.green() ? bonescript.HIGH : bonescript.LOW)
+			write_pins(RED_PINS, state.red() ? bonescript.LOW : bonescript.HIGH),
+			write_pins(YELLOW_PINS, state.yellow() ? bonescript.LOW : bonescript.HIGH),
+			write_pins(GREEN_PINS, state.green() ? bonescript.LOW : bonescript.HIGH)
 		], function(err) {
 			cb(err);
 		});

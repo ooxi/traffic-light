@@ -42,9 +42,9 @@ var argv = require("yargs")
 	.describe("port", "Port on with the network server should listen")
 
 
-	.describe("beagle-bone-black.red-pin", "Name of pin for red light")
-	.describe("beagle-bone-black.yellow-pin", "Name of pin for yellow light")
-	.describe("beagle-bone-black.green-pin", "Name of pin for green light")
+	.describe("beagle-bone-black.red-pins", "Name of pins for red light").array("beagle-bone-black.red-pins")
+	.describe("beagle-bone-black.yellow-pins", "Name of pins for yellow light").array("beagle-bone-black.yellow-pins")
+	.describe("beagle-bone-black.green-pins", "Name of pins for green light").array("beagle-bone-black.green-pins")
 .argv;
 
 

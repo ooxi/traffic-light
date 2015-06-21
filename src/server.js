@@ -122,7 +122,7 @@ var Server = function(get, set, gui) {
 				} else if ("false" === query.red) {
 					state = state.red(false);
 				} else {
-					cb(new Error("Invalid value `"+ query.red +"' for property `red'"));
+					callback(new Error("Invalid value `"+ query.red +"' for property `red'"));
 					return;
 				}
 			}
@@ -133,7 +133,7 @@ var Server = function(get, set, gui) {
 				} else if ("false" === query.yellow) {
 					state = state.yellow(false);
 				} else {
-					cb(new Error("Invalid value `"+ query.yellow +"' for property `yellow'"));
+					callback(new Error("Invalid value `"+ query.yellow +"' for property `yellow'"));
 					return;
 				}
 			}
@@ -144,7 +144,7 @@ var Server = function(get, set, gui) {
 				} else if ("false" === query.green) {
 					state = state.green(false);
 				} else {
-					cb(new Error("Invalid value `"+ query.green +"' for property `green'"));
+					callback(new Error("Invalid value `"+ query.green +"' for property `green'"));
 					return;
 				}
 			}

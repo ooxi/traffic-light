@@ -33,7 +33,7 @@ var collection_includes = require("lodash/collection/includes");
 exports.testInvalidRedPin = function(test) {
 	try {
 		new BeagleBoneBlack({
-			"red-pin":	"invalid-pin-name"
+			"red-pins":	["invalid-pin-name"]
 		});
 		test.ok(false, "Expected invalid pin error");
 		
@@ -45,7 +45,7 @@ exports.testInvalidRedPin = function(test) {
 
 exports.testValidRedPin = function(test) {
 	new BeagleBoneBlack({
-		"red-pin":	"USR3"
+		"red-pins":	["USR3"]
 	});
 	test.done();
 };
@@ -57,7 +57,7 @@ exports.testValidRedPin = function(test) {
 exports.testInvalidYellowPin = function(test) {
 	try {
 		new BeagleBoneBlack({
-			"yellow-pin":	"invalid-pin-name"
+			"yellow-pins":	["invalid-pin-name"]
 		});
 		test.ok(false, "Expected invalid pin error");
 		
@@ -69,7 +69,7 @@ exports.testInvalidYellowPin = function(test) {
 
 exports.testValidYellowPin = function(test) {
 	new BeagleBoneBlack({
-		"yellow-pin":	"USR3"
+		"yellow-pins":	["USR3"]
 	});
 	test.done();
 };
@@ -81,7 +81,7 @@ exports.testValidYellowPin = function(test) {
 exports.testInvalidGreenPin = function(test) {
 	try {
 		new BeagleBoneBlack({
-			"green-pin":	"invalid-pin-name"
+			"green-pins":	["invalid-pin-name"]
 		});
 		test.ok(false, "Expected invalid pin error");
 		
@@ -93,7 +93,7 @@ exports.testInvalidGreenPin = function(test) {
 
 exports.testValidGreenPin = function(test) {
 	new BeagleBoneBlack({
-		"green-pin":	"USR3"
+		"green-pins":	["USR3"]
 	});
 	test.done();
 };
